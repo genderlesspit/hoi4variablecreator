@@ -1,304 +1,436 @@
 import os
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
+import shutil
 
-def create_folders_and_write(variable):
-    # Define folder structure
-    base_folder = "common"
-    on_actions_folder = os.path.join(base_folder, "on_actions")
-    scripted_effects_folder = os.path.join(base_folder, "scripted_effects")
 
-    # Create the folders
-    os.makedirs(on_actions_folder, exist_ok=True)
-    os.makedirs(scripted_effects_folder, exist_ok=True)
+def create_input_directory(variable_prefix):
+    program_name = "hoi4variableprogram"
+    input_dir = os.path.join(os.path.expanduser("~"), "Documents", program_name)
 
-    # Write to var_on_actions.txt in on_actions
-    with open(os.path.join(on_actions_folder, f"var_{variable}_on_actions.txt"), 'w') as f:
-        f.write(f"# On Actions: {variable}\n")
+    # Create the template directory and subdirectories
+    template_dir = os.path.join(input_dir, "template")
+    os.makedirs(os.path.join(template_dir, "common", "on_actions"), exist_ok=True)
+    os.makedirs(os.path.join(template_dir, "common", "scripted_effects"), exist_ok=True)
+    os.makedirs(os.path.join(template_dir, "common", "scripted_localisation"), exist_ok=True)
+    os.makedirs(os.path.join(template_dir, "localisation"), exist_ok=True)
 
-    # Code blocks with user-defined variable
-    code_blocks = f"""{variable}_add_to_total = {{
+    # Create the var_l_english.yml file
+    yml_path = os.path.join(template_dir, "localisation", "var_l_english.yml")
+    with open(yml_path, 'w', encoding='utf-8-sig') as file:
+        file.write("l_english:\n")
+        file.write(f"  {variable_prefix}loc_positive: \"§G+[{variable_prefix}overflow_value]§!\"\n")
+        file.write(f"  {variable_prefix}loc_negative: \"§R-[{variable_prefix}overflow_value]§!\"\n")
 
-    add_to_variable = {{ THIS.{variable} = THIS.{variable}_add_to_total }}
+    # Create the var_scripted_effects.txt file
+    effects_path = os.path.join(template_dir, "common", "scripted_effects", "var_scripted_effects.txt")
+    with open(effects_path, 'w', encoding='utf-8-sig') as file:
+        file.write(f"{variable_prefix}add_to_total = {{\n")
+        file.write(f"    add_to_variable = {{ {variable_prefix}source = THIS.{variable_prefix}add_to_total }}\n #you must specify {variable_prefix}source as a temp variable")
+        file.write(f"\n")
+        file.write(f"    if = {{ \n")
+        file.write(f"        limit = {{ \n")
+        file.write(f"            has_country_flag = {variable_prefix}overflow_check_is_negative \n")
+        file.write(f"        }}\n")
+        file.write(f"        multiply_variable = {{ THIS.{variable_prefix}add_to_total = -1 }} #forces digit to be positive\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n\n")
+        file.write(f"{variable_prefix}initialize_overflow_value = {{\n")
+        file.write(f"    add_to_temp_array = {{ divide_by_values = 10 }}\n")
+        file.write(f"    add_to_temp_array = {{ divide_by_values = 100 }}\n")
+        file.write(f"    add_to_temp_array = {{ divide_by_values = 1000 }}\n")
+        file.write(f"    add_to_temp_array = {{ divide_by_values = 10000 }}\n")
+        file.write(f"    add_to_temp_array = {{ divide_by_values = 100000 }}\n")
+        file.write(f"    add_to_temp_array = {{ divide_by_values = 1000000 }}\n")
+        file.write(f"\n")
+        file.write(f"    set_variable = {{ THIS.{variable_prefix}add_to_total_digit = 0 }}\n")
+        file.write(f"\n")
+        file.write(f"    for_each_loop = {{\n")
+        file.write(f"        array = divide_by_values\n")
+        file.write(f"        value = v\n")
+        file.write(f"        if = {{\n")
+        file.write(f"            limit = {{ THIS.{variable_prefix}add_to_total > v }}\n")
+        file.write(f"            subtract_from_variable = {{ THIS.{variable_prefix}add_to_total = v }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        add_to_variable = {{ THIS.{variable_prefix}add_to_total_digit = 1 }}\n")
+        file.write(f"        add_to_variable = {{ THIS.{variable_prefix}overflow_check^{variable_prefix}add_to_total_digit = 1 }}\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-    if = {{ 
-        limit = {{ 
-            has_country_flag = {variable}_overflow_check_is_negative 
-        }}
-        multiply_variable = {{ THIS.{variable}_add_to_total = -1 }} #forces digit to be positive
-    }}
-}}
+    scripted_loc_path = os.path.join(template_dir, "common", "scripted_localisation", "var_scripted_localisation.txt")
+    with open(scripted_loc_path, 'w', encoding='utf-8-sig') as file:
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_zero\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^0 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^0 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^0]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-{variable}_initialize_overflow_value = {{
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_ten\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^1 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^1 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^1]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-    add_to_temp_array = {{ divide_by_values = 10 }}
-    add_to_temp_array = {{ divide_by_values = 100 }}
-    add_to_temp_array = {{ divide_by_values = 1000 }}
-    add_to_temp_array = {{ divide_by_values = 10000 }}
-    add_to_temp_array = {{ divide_by_values = 100000 }}
-    add_to_temp_array = {{ divide_by_values = 1000000 }}
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_hundred\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^2 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^2 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^2]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-    set_variable = {{ THIS.{variable}_add_to_total_digit = 0 }}
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_thousand\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^3 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^3 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^3]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-    for_each_loop = {{
-        array = divide_by_values
-        value = v
-        if = {{
-            limit = {{ THIS.{variable}_add_to_total > v }}
-            subtract_from_var = {{ THIS.{variable}_add_to_total = v }}
-        }}
-        add_to_variable = {{ THIS.{variable}_add_to_total_digit = 1 }}
-        add_to_variable = {{ THIS.{variable}_overflow_check^{variable}_add_to_total_digit = 1 }}
-    }}
-}}"""
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_ten_thousand\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^4 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^4 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^4]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-    with open(os.path.join(scripted_effects_folder, f"var_{variable}_scripted_effects.txt"), 'w') as f:
-        f.write(f"# Scripted Effects: {variable}\n\n")
-        f.write(code_blocks)
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_hundred_thousand\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^5 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^5 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^5]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-    # Create the on_actions code
-    on_actions_code = f"""on_actions = {{
-    on_daily = {{
-        effect = {{
-            every_country = {{
-                limit = {{ is_ai = no }} 
-                if = {{
-                    limit = {{ NOT = {{ has_country_flag = {variable}_overflow_check_yes }} }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.var
-                        index = 0
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_ten
-                        index = 1
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_hundred
-                        index = 2
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_thousand
-                        index = 3
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_ten_thousand
-                        index = 4
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_hundred_thousand
-                        index = 5
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_million
-                        index = 6
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_ten_million
-                        index = 7
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_hundred_million
-                        index = 8
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_billion
-                        index = 9
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_ten_billion
-                        index = 10
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_hundred_billion
-                        index = 11
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_trillion
-                        index = 12
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_ten_trillion
-                        index = 13
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_hundred_trillion
-                        index = 14
-                    }}
-                    add_to_array = {{ 
-                        array = THIS.{variable}_overflow_check
-                        value = THIS.{variable}_imaginary_number
-                        index = 15
-                    }}
-                    set_variable = {{ THIS.{variable}_overflow_check^0 = 999 }}
-                    set_country_flag = {variable}_overflow_check_yes
-                    set_country_flag = {variable}_overflow_check_is_positive
-                    for_each_loop = {{
-                        array = THIS.{variable}_overflow_check
-                        value = v
-                        log = "[?v] added to array."
-                    }}
-                }}    
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_million\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^6 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^6 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^6]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-                for_loop_effect = {{
-                    start = 0
-                    end = 14
-                    add = 1
-                    value = v
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_ten_million\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^7 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^7 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^7]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-                    round_variable = THIS.{variable}_overflow_check^v
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_hundred_million\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^8 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^8 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^8]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-                    set_temp_variable = {{ next_digit = v }}
-                    add_to_temp_variable = {{ next_digit = 1 }}
-                    set_temp_variable = {{ this_digit = v }}
-                    set_temp_variable = {{ last_digit = v }}
-                    add_to_temp_variable = {{ last_digit = -1 }}
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_billion\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^9 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^9 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^9]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-                    if = {{ 
-                        limit = {{ check_variable = {{ THIS.{variable}_overflow_check^this_digit > 9 }} }} 
-                        add_to_variable = {{ THIS.{variable}_overflow_check^next_digit = 1 }} 
-                        add_to_variable = {{ THIS.{variable}_overflow_check^this_digit = -10 }} 
-                        log = "{variable}_overflow_check: Digit overflow found!"
-                        log = "{variable}_overflow_check: New total is [?THIS.{variable}_overflow_check^6][?THIS.{variable}_overflow_check^5][?THIS.{variable}_overflow_check^4][?THIS.{variable}_overflow_check^3][?THIS.{variable}_overflow_check^2][?THIS.{variable}_overflow_check^1][?THIS.{variable}_overflow_check^0]"
-                    }}
-                    if = {{
-                        limit = {{ 
-                            check_variable = {{ THIS.{variable}_overflow_check^this_digit < 0 }} 
-                        }}
-                        log = "Found negative digit in THIS.{variable}_overflow_check^[?this_digit!]"
-                        for_loop_effect = {{
-                            start = 0
-                            add = 1 
-                            end = 14  
-                            value = y
-                            break = can_borrow_digit
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_ten_billion\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^10 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^10 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^10]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-                            set_temp_variable = {{ borrowable_digit = y }}
+        file.write(f"defined_text = {{\n")
+        file.write(f"    name = {variable_prefix}digit_hundred_billion\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        trigger = {{\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^11 > -1 }}\n")
+        file.write(f"            check_variable = {{ THIS.{variable_prefix}overflow_check^11 < 10 }}\n")
+        file.write(f"        }}\n")
+        file.write(f"        localization_key = \"[?ROOT.{variable_prefix}overflow_check^11]\"\n")
+        file.write(f"    }}\n")
+        file.write(f"    text = {{\n")
+        file.write(f"        localization_key = \"\"\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
 
-                            if = {{
-                                limit = {{ 
-                                    check_variable = {{ borrowable_digit > this_digit }}
-                                    check_variable = {{ THIS.{variable}_overflow_check^y > 0 }}
-                                }}
+    # Create the var_on_actions.txt file
+    on_actions_path = os.path.join(template_dir, "common", "on_actions", "var_on_actions.txt")
+    with open(on_actions_path, 'w', encoding='utf-8-sig') as file:
+        file.write(f"on_actions = {{\n")
+        file.write(f"    on_daily = {{\n")
+        file.write(f"        effect = {{\n")
+        file.write(f"            every_country = {{\n")
+        file.write(f"                #limit = {{ is_ai = no }}\n")
+        file.write(f"                if = {{\n")
+        file.write(f"                    limit = {{ NOT = {{ has_country_flag = {variable_prefix}overflow_check_yes }} }}\n")
 
-                                set_country_flag = {variable}_overflow_check_borrowable_digit
+        for index, var in enumerate([
+            "var", "var_ten", "var_hundred", "var_thousand",
+            "var_ten_thousand", "var_hundred_thousand", "var_million",
+            "var_ten_million", "var_hundred_million", "var_billion",
+            "var_ten_billion", "var_hundred_billion", "var_trillion",
+            "var_ten_trillion", "var_hundred_trillion", "var_imaginary_number"
+        ]):
+            file.write(f"                    add_to_array = {{\n")
+            file.write(f"                        array = THIS.{variable_prefix}overflow_check\n")
+            file.write(f"                        value = THIS.{variable_prefix}{var}\n")
+            file.write(f"                        index = {index}\n")
+            file.write(f"                    }}\n")
 
-                                set_variable = {{ THIS.{variable}_overflow_check_borrowed_digit = y }}
-                                log = "{variable}_overflow_check: Found borrowable digit!"
-                                clear_variable = THIS.{variable}_overflow_check_borrowed_digit
+        file.write(f"                    set_variable = {{ THIS.{variable_prefix}overflow_check^0 = 999 }}\n")
+        file.write(f"                    set_country_flag = {variable_prefix}overflow_check_yes\n")
+        file.write(f"                    set_country_flag = {variable_prefix}overflow_check_is_positive\n")
+        file.write(f"                    for_each_loop = {{\n")
+        file.write(f"                        array = THIS.{variable_prefix}overflow_check\n")
+        file.write(f"                        value = v\n")
+        file.write(f"                        log = \"[?v] added to array.\"\n")
+        file.write(f"                    }}\n")
+        file.write(f"                }}\n")
 
-                                set_temp_variable = {{ borrowed_digit = y }}
-                                set_temp_variable = {{ borrowed_digit_last_digit = borrowed_digit }}
-                                add_to_temp_variable = {{ borrowed_digit_last_digit = -1 }}
+        file.write(f"                for_loop_effect = {{\n")
+        file.write(f"                    start = 0\n")
+        file.write(f"                    end = 14\n")
+        file.write(f"                    add = 1\n")
+        file.write(f"                    value = v\n")
+        file.write(f"                    round_variable = THIS.{variable_prefix}overflow_check^v\n")
+        file.write(f"                    set_temp_variable = {{ next_digit = v }}\n")
+        file.write(f"                    add_to_temp_variable = {{ next_digit = 1 }}\n")
+        file.write(f"                    set_temp_variable = {{ this_digit = v }}\n")
+        file.write(f"                    set_temp_variable = {{ last_digit = v }}\n")
+        file.write(f"                    add_to_temp_variable = {{ last_digit = -1 }}\n")
 
-                                add_to_variable = {{ THIS.{variable}_overflow_check^borrowed_digit = -1 }} 
-                                add_to_variable = {{ THIS.{variable}_overflow_check^borrowed_digit_last_digit = 10 }} 
-                                log = "{variable}_overflow_check: New total is [?THIS.{variable}_overflow_check^6][?THIS.{variable}_overflow_check^5][?THIS.{variable}_overflow_check^4][?THIS.{variable}_overflow_check^3][?THIS.{variable}_overflow_check^2][?THIS.{variable}_overflow_check^1][?THIS.{variable}_overflow_check^0]"
+        file.write(f"                    if = {{\n")
+        file.write(f"                        limit = {{ check_variable = {{ THIS.{variable_prefix}overflow_check^this_digit > 9 }} }}\n")
+        file.write(f"                        add_to_variable = {{ THIS.{variable_prefix}overflow_check^next_digit = 1 }}\n")
+        file.write(f"                        add_to_variable = {{ THIS.{variable_prefix}overflow_check^this_digit = -10 }}\n")
+        file.write(f"                        log = \"var_overflow_check: Digit overflow found!\"\n")
+        file.write(f"                        log = \"var_overflow_check: New total is [?THIS.{variable_prefix}overflow_check^6][?THIS.{variable_prefix}overflow_check^5][?THIS.{variable_prefix}overflow_check^4][?THIS.{variable_prefix}overflow_check^3][?THIS.{variable_prefix}overflow_check^2][?THIS.{variable_prefix}overflow_check^1][?THIS.{variable_prefix}overflow_check^0]\"\n")
+        file.write(f"                    }}\n")
 
-                                set_temp_variable = {{ can_borrow_digit = 1 }} 
-                            }}
-                        }}
-                        if = {{ 
-                            limit = {{ NOT = {{ has_country_flag = {variable}_overflow_check_borrowable_digit }} }}
-                            if = {{
-                                limit = {{ 
-                                    NOT = {{ check_variable = {{ this_digit = 0 }} }}
-                                }}
+        file.write(f"                    if = {{\n")
+        file.write(f"                        limit = {{ check_variable = {{ THIS.{variable_prefix}overflow_check^this_digit < 0 }} }}\n")
+        file.write(f"                        log = \"Found negative digit in THIS.{variable_prefix}overflow_check^[?this_digit!]\"\n")
 
-                                add_to_variable = {{ THIS.{variable}_overflow_check^last_digit = -10 }} 
-                                add_to_variable = {{ THIS.{variable}_overflow_check^this_digit = 1 }} 
-                                log = "{variable}_overflow_check: No digit to borrow from. You're getting poorer. Whoops."
-                                log = "{variable}_overflow_check: New total is [?THIS.{variable}_overflow_check^6][?THIS.{variable}_overflow_check^5][?THIS.{variable}_overflow_check^4][?THIS.{variable}_overflow_check^3][?THIS.{variable}_overflow_check^2][?THIS.{variable}_overflow_check^1][?THIS.{variable}_overflow_check^0]"
-                            }}
-                            if = {{
-                                limit = {{ 
-                                    check_variable = {{ this_digit = 0 }}
-                                    check_variable = {{ THIS.{variable}_overflow_check^this_digit < 0 }}
-                                }}
-                                if = {{ 
-                                    limit = {{ has_country_flag = {variable}_overflow_check_is_positive }}
+        file.write(f"                        for_loop_effect = {{\n")
+        file.write(f"                            start = 0\n")
+        file.write(f"                            add = 1\n")
+        file.write(f"                            end = 14\n")
+        file.write(f"                            value = y\n")
+        file.write(f"                            break = can_borrow_digit\n")
+        file.write(f"                            set_temp_variable = {{ borrowable_digit = y }}\n")
 
-                                    set_country_flag = {variable}_overflow_check_is_negative
-                                    clr_country_flag = {variable}_overflow_check_is_positive
+        file.write(f"                            if = {{\n")
+        file.write(f"                                limit = {{\n")
+        file.write(f"                                    check_variable = {{ borrowable_digit > this_digit }}\n")
+        file.write(f"                                    check_variable = {{ THIS.{variable_prefix}overflow_check^y > 0 }}\n")
+        file.write(f"                                }}\n")
 
-                                    multiply_variable = {{ THIS.{variable}_overflow_check^0 = -1 }}
-                                    log = "{variable}_overflow_check has gone negative!"
-                                }}
-                                else_if = {{
-                                    set_country_flag = {variable}_overflow_check_is_positive
-                                    clr_country_flag = {variable}_overflow_check_is_negative
+        file.write(f"                                set_country_flag = {variable_prefix}overflow_check_borrowable_digit\n")
+        file.write(f"                                set_variable = {{ THIS.{variable_prefix}overflow_check_borrowed_digit = y }}\n")
+        file.write(f"                                log = \"var_overflow_check: Found borrowable digit!\"\n")
+        file.write(f"                                clear_variable = THIS.{variable_prefix}overflow_check_borrowed_digit\n")
 
-                                    multiply_variable = {{ THIS.{variable}_overflow_check^0 = -1 }}
-                                    log = "{variable}_overflow_check has gone positive!"
-                                }}
-                            }}
-                        }}
-                        clr_country_flag = {variable}_overflow_check_borrowable_digit
-                    }}
-                }}
-            }}
-        }}
-    }}
-}}"""
+        file.write(f"                                set_temp_variable = {{ borrowed_digit = y }}\n")
+        file.write(f"                                set_temp_variable = {{ borrowed_digit_last_digit = borrowed_digit }}\n")
+        file.write(f"                                add_to_temp_variable = {{ borrowed_digit_last_digit = -1 }}\n")
 
-    # Write the on_actions code block to the appropriate file
-    with open(os.path.join(on_actions_folder, f"var_{variable}_on_actions.txt"), 'a') as f:
-        f.write(on_actions_code)
+        file.write(f"                                add_to_variable = {{ THIS.{variable_prefix}overflow_check^borrowed_digit = -1 }}\n")
+        file.write(f"                                add_to_variable = {{ THIS.{variable_prefix}overflow_check^borrowed_digit_last_digit = 10 }}\n")
+        file.write(f"                                log = \"var_overflow_check: New total is [?THIS.{variable_prefix}overflow_check^6][?THIS.{variable_prefix}overflow_check^5][?THIS.{variable_prefix}overflow_check^4][?THIS.{variable_prefix}overflow_check^3][?THIS.{variable_prefix}overflow_check^2][?THIS.{variable_prefix}overflow_check^1][?THIS.{variable_prefix}overflow_check^0]\"\n")
 
-def generate_files():
-    user_variable = entry.get()
-    if user_variable:
-        create_folders_and_write(user_variable)
-        messagebox.showinfo("Success", "Folders and files created successfully.")
+        file.write(f"                                set_temp_variable = {{ can_borrow_digit = 1 }}\n")
+        file.write(f"                            }}\n")
+
+        file.write(f"                        }}\n")
+
+        file.write(f"                        if = {{\n")
+        file.write(f"                            limit = {{ NOT = {{ has_country_flag = {variable_prefix}overflow_check_borrowable_digit }} }}\n")
+        file.write(f"                            if = {{\n")
+        file.write(f"                                limit = {{ NOT = {{ check_variable = {{ this_digit = 0 }} }} }}\n")
+
+        file.write(f"                                add_to_variable = {{ THIS.{variable_prefix}overflow_check^last_digit = -10 }}\n")
+        file.write(f"                                add_to_variable = {{ THIS.{variable_prefix}overflow_check^this_digit = 1 }}\n")
+        file.write(f"                                log = \"var_overflow_check: No digit to borrow from. You're getting poorer. Whoops.\"\n")
+        file.write(f"                                log = \"var_overflow_check: New total is [?THIS.{variable_prefix}overflow_check^6][?THIS.{variable_prefix}overflow_check^5][?THIS.{variable_prefix}overflow_check^4][?THIS.{variable_prefix}overflow_check^3][?THIS.{variable_prefix}overflow_check^2][?THIS.{variable_prefix}overflow_check^1][?THIS.{variable_prefix}overflow_check^0]\"\n")
+
+        file.write(f"                            }}\n")
+
+        file.write(f"                            if = {{\n")
+        file.write(f"                                limit = {{ check_variable = {{ this_digit = 0 }}\n")
+        file.write(f"                                check_variable = {{ THIS.{variable_prefix}overflow_check^this_digit < 0 }} }}\n")
+
+        file.write(f"                                if = {{\n")
+        file.write(f"                                    limit = {{ has_country_flag = {variable_prefix}overflow_check_is_positive }}\n")
+
+        file.write(f"                                    set_country_flag = {variable_prefix}overflow_check_is_negative\n")
+        file.write(f"                                    clr_country_flag = {variable_prefix}overflow_check_is_positive\n")
+
+        file.write(f"                                    multiply_variable = {{ THIS.{variable_prefix}overflow_check^0 = -1 }}\n")
+        file.write(f"                                    log = \"var_overflow_check has gone negative!\"\n")
+        file.write(f"                                }}\n")
+
+        file.write(f"                                else_if = {{\n")
+        file.write(f"                                    set_country_flag = {variable_prefix}overflow_check_is_positive\n")
+        file.write( f"                                    clr_country_flag = {variable_prefix}overflow_check_is_negative\n")
+
+        file.write(f"                                    multiply_variable = {{ THIS.{variable_prefix}overflow_check^0 = -1 }}\n")
+        file.write(f"                                    log = \"var_overflow_check has gone positive!\"\n")
+        file.write(f"                                }}\n")
+
+        file.write(f"                            }}\n")
+
+        file.write(f"                        }}\n")
+
+        file.write(f"                    }}\n")
+
+        file.write(f"                }}\n")
+        file.write(f"            }}\n")
+        file.write(f"        }}\n")
+        file.write(f"    }}\n")
+        file.write(f"}}\n")
+
+    return input_dir
+
+
+def duplicate_and_modify_files(input_dir, output_dir, variable_prefix):
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Append underscore to variable prefix
+    variable_prefix_with_underscore = f"{variable_prefix}_"
+
+    for root, _, files in os.walk(input_dir):
+        for filename in files:
+            input_path = os.path.join(root, filename)
+
+            with open(input_path, 'r', encoding='utf-8-sig') as file:
+                content = file.read()
+
+            modified_content = content.replace(f"{variable_prefix}", variable_prefix_with_underscore)
+
+            # Rename the file
+            new_filename = filename.replace("var_", f"{variable_prefix}_")
+            output_subdir = os.path.join(output_dir, os.path.relpath(root, input_dir))
+            os.makedirs(output_subdir, exist_ok=True)
+
+            output_path = os.path.join(output_subdir, new_filename)
+
+            with open(output_path, 'w', encoding='utf-8-sig') as file:
+                file.write(modified_content)
+
+            print(f"Duplicated and modified {filename} -> {output_path}")
+
+
+def run_program(variable_prefix):
+    input_directory = create_input_directory(variable_prefix)
+
+    # Create output directory named "output" containing the variable prefix folder
+    output_directory = os.path.join(input_directory, "output", variable_prefix)
+
+    # Duplicate and modify files
+    duplicate_and_modify_files(os.path.join(input_directory, "template"), output_directory, variable_prefix)
+
+    messagebox.showinfo("Success", f"Files created in: {output_directory}")
+
+    shutil.rmtree(os.path.join(input_directory, "template"))
+
+    messagebox.showinfo("Success", f"Files created in: {output_directory}")
+
+def on_submit():
+    variable_prefix = entry_prefix.get()
+    if variable_prefix.strip():
+        run_program(variable_prefix)
     else:
-        messagebox.showwarning("Input Error", "Please enter a variable.")
+        messagebox.showwarning("Input Error", "Please enter a valid variable prefix.")
 
-from tkinter import filedialog
 
-def select_folder():
-    global folder_path
-    folder_path = filedialog.askdirectory(initialdir=r"C:\Users\{}\Documents\Paradox Interactive\Hearts of Iron IV\mod".format(os.getlogin()), title="Select Output Folder")
-    folder_label.config(text=f"Selected Folder: {folder_path}")
-
-# Set up the GUI
+# Create a simple GUI
 root = tk.Tk()
-root.title("Variable File Generator")
-root.geometry("500x250")
+root.title("HOI4 Variable Program Creator")
 
-# Create and place a label and entry
-label = tk.Label(root, text="Enter a variable:")
-label.pack(pady=10)
+frame = tk.Frame(root)
+frame.pack(pady=20, padx=20)
 
-entry = tk.Entry(root, width=40)
-entry.pack(pady=5)
+label_prefix = tk.Label(frame, text="Enter Variable Name:")
+label_prefix.pack()
 
-# Create and place the select folder button
-select_folder_button = tk.Button(root, text="Select Mod Folder", command=select_folder)
-select_folder_button.pack(pady=5)
+entry_prefix = tk.Entry(frame)
+entry_prefix.pack(pady=5)
 
-folder_label = tk.Label(root, text="No folder selected")
-folder_label.pack(pady=5)
+submit_button = tk.Button(frame, text="Create Files", command=on_submit)
+submit_button.pack(pady=10)
 
-# Create and place the generate button
-generate_button = tk.Button(root, text="Generate Files", command=generate_files)
-generate_button.pack(pady=20)
-
-# Initialize folder_path variable
-folder_path = ""
-
-# Run the application
 root.mainloop()
