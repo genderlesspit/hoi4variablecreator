@@ -24,7 +24,7 @@ def create_input_directory(variable_prefix):
 
     # Create the var_scripted_effects.txt file
     effects_path = os.path.join(template_dir, "common", "scripted_effects", "var_scripted_effects.txt")
-    with open(effects_path, 'w', encoding='utf-8-sig') as file:
+    with open(effects_path, 'w', encoding='utf-8') as file:
         file.write(f"{variable_prefix}add_to_total = {{\n")
         file.write(f"    add_to_variable = {{ {variable_prefix}source = THIS.{variable_prefix}add_to_total }}\n #you must specify {variable_prefix}source as a temp variable")
         file.write(f"\n")
@@ -58,7 +58,7 @@ def create_input_directory(variable_prefix):
         file.write(f"}}\n")
 
     scripted_loc_path = os.path.join(template_dir, "common", "scripted_localisation", "var_scripted_localisation.txt")
-    with open(scripted_loc_path, 'w', encoding='utf-8-sig') as file:
+    with open(scripted_loc_path, 'w', encoding='utf-8') as file:
         file.write(f"defined_text = {{\n")
         file.write(f"    name = {variable_prefix}digit_zero\n")
         file.write(f"    text = {{\n")
@@ -229,7 +229,7 @@ def create_input_directory(variable_prefix):
 
     # Create the var_on_actions.txt file
     on_actions_path = os.path.join(template_dir, "common", "on_actions", "var_on_actions.txt")
-    with open(on_actions_path, 'w', encoding='utf-8-sig') as file:
+    with open(on_actions_path, 'w', encoding='utf-8') as file:
         file.write(f"on_actions = {{\n")
         file.write(f"    on_daily = {{\n")
         file.write(f"        effect = {{\n")
